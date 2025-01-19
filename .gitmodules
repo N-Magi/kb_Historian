@@ -1,3 +1,6 @@
 [submodule "src/omnissa_kb_lib"]
 	path = src/omnissa_kb_lib
 	url = git@github.com:N-Magi/omnissa_kblib.git
+[submodule "omnissa_kblib"]
+	path = omnissa_kblib
+	url = git@github.com:N-Magi/omnissa_kblib.git
