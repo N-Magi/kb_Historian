@@ -4,8 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rusqlite ={version = "0.32.1", features = ["chrono"]}
-iced ={ version = "0.13.1"}
+rusqlite ={version = "0.32.1", features = ["chrono","bundled"]}
+iced ={ version = "0.13.1", features = ["tokio"]}
 iced_aw ={ version = "0.11.0"}
 chrono = "*"
-tokio = {version =  "1", features = ["full"]}
+tokio = {version =  "1.43.0", features = ["full"]}
+tokio-stream = {version = "*"}
+omnissa_kblib ={ path = "./omnissa_kblib"}
+uuid ={ version = "*" , features = ["v4","fast-rng","macro-diagnostics"]}
