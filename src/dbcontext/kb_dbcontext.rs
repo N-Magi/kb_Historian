@@ -118,16 +118,21 @@ impl KbDbContext {
         }
 
         let conn = self.connection.as_mut().unwrap();
-        let sql_scheme = "SELECT * FROM kb_history WHERE kb_num = ? AND last_modified_date = ?";
+        let sql_scheme = "SELECT COUNT(*) FROM kb_history WHERE kb_num = ? AND last_modified_date = ?";
 
         let tx = conn.transaction().unwrap();
         
         let mut stmts = tx.prepare(&sql_scheme)
             .map_err(|err| DiffToolError::KbDbPreparationError(err.to_string()))?;
 
-        let result = stmts.query(params![kb_num,last_modified_date]).iter().count();
+        let mut result = stmts.query(params![kb_num,last_modified_date]).map_err(|e| DiffToolError::KbDbQueryError(e.to_string()))?;
 
-        return Ok(result);
+        if let Some(row) = result.next().map_err(|e| DiffToolError::KbDbGetRowError(e.to_string()))? {
+            let record_qty:usize = row.get(0).map_err(|e| DiffToolError::KbDbGetRowError(e.to_string()))?;
+            return  Ok(record_qty);
+        }
+
+        return Ok(0);
         
         todo!()
     }
