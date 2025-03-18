@@ -208,7 +208,7 @@ impl Page {
                 
                 let mut kb_entity = KbDiffEntity::from(result);
                 kb_entity.id = Some(id);
-
+                println!("{}",kb_entity.kb_num);
                 let record_qty = self.db_context.get_record(kb_entity.kb_num, kb_entity.last_modified_date).unwrap();
                 
                 if record_qty == 0 {
@@ -246,10 +246,6 @@ impl Page {
         let a = omnissa_kblib::page::PageClient::get_content(kb_num).await.unwrap();
         return (task_id,a);
     }
-
-
-
-
 
     fn view(&self) -> Element<Message> {
     
