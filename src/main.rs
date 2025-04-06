@@ -34,7 +34,7 @@ pub mod download_progress;
 fn main() -> iced::Result  {
     iced::application("test", Page::update, Page::view)
     .font(iced_fonts::REQUIRED_FONT_BYTES)
-    .window_size(Size::new(360.0,360.0))
+    .window_size(Size::new(360.0,200.0))
     .run_with(||{
         return (Page::new(),Task::done(Message::ApplicationInitialize));
     })
@@ -79,7 +79,7 @@ enum Message {
     Search,
     Download,
     BackGroudJob(SearchResult),
-    PageResult((Uuid,omnissa_kblib::page::Page)),
+    PageResult(Result<(Uuid,omnissa_kblib::page::Page),Uuid>),
     ChainTest(&'static KbPage),
 }
 
@@ -200,8 +200,21 @@ impl Page {
                 return Task::batch(task);
             }
 
-            Message::PageResult((id,result)) => {
+            Message::PageResult(page_result) => {
 
+                //エラー処理　エラーが発生したｋｂはスキップする。
+                let Ok((id,result)) = page_result else {
+
+                    let id = page_result.err().unwrap();
+
+                    if let Some(task) = self.task_status.get_mut(&id){
+                        *task = true;
+                    }
+
+                    return Task::none();
+                };
+
+                //タスクを完了にマーク
                 if let Some(task) = self.task_status.get_mut(&id){
                     *task = true;
                 }
@@ -226,11 +239,8 @@ impl Page {
             }
         }
 
-
         todo!()
     }
-
-    
 
 
     async fn search(start_time:DateTime<Utc>, end_time:DateTime<Utc>) -> SearchResult {
@@ -242,9 +252,13 @@ impl Page {
         return result;
     }
 
-    async fn download_page(task_id:Uuid,kb_num:String) -> (Uuid,omnissa_kblib::page::Page) {
-        let a = omnissa_kblib::page::PageClient::get_content(kb_num).await.unwrap();
-        return (task_id,a);
+    async fn download_page(task_id:Uuid,kb_num:String) -> Result<(Uuid,omnissa_kblib::page::Page),Uuid> {
+
+        let Ok(page) = omnissa_kblib::page::PageClient::get_content(kb_num).await else {
+            return Err(task_id);
+        };
+
+        return Ok((task_id,page));
     }
 
     fn view(&self) -> Element<Message> {
@@ -257,21 +271,19 @@ impl Page {
 
         let search_button = button(text("Search").align_x(Center)).on_press(Message::Search).width(Length::Fill);
 
-        let download_button = button(text("Download").align_x(Center)).on_press(Message::Download).width(Length::Fill);
+        let download_button = button(text(format!("Download({})",self.downloads.iter().count())).align_x(Center)).on_press(Message::Download).width(Length::Fill);
 
         let download_complete = self.task_status.iter().filter(|task| *task.1 == true).count();
 
         let progress_value = if self.all_contents <= 0 {0.0} 
             else {(download_complete as f32 / self.all_contents as f32)};
 
-        
-
-        println!("{}/{}",self.all_contents,download_complete);
-
         let download_progress = ProgressBar::new(
         std::ops::RangeInclusive::new(0.0, 1.0), 
         progress_value)
         .height(Length::Fixed(10.0));
+        
+        let progress_label= text(format!("{}/{}",self.all_contents,download_complete));
 
         let date_select_group = row![
             text("Period:")
@@ -292,10 +304,10 @@ impl Page {
 
         if self.show_download_progress {
             col = col.push(download_progress);
+            col = col.push(progress_label);
         }
 
         let container = Container::new(col);
-
         return container.into();
 
     }
