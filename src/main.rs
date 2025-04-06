@@ -32,7 +32,7 @@ pub mod download_progress;
 //use download_progress;
 
 fn main() -> iced::Result  {
-    iced::application("test", Page::update, Page::view)
+    iced::application("difftool", Page::update, Page::view)
     .font(iced_fonts::REQUIRED_FONT_BYTES)
     .window_size(Size::new(360.0,200.0))
     .run_with(||{
