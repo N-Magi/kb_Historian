@@ -57,11 +57,18 @@ struct Page {
     //ダウンロードプログレス用
     all_contents:i64,
     show_download_progress:bool,
-    task_status:HashMap<Uuid,bool>,
+    task_status:HashMap<Uuid,TaskStatus>,
     theme: Theme,
     //DB_connection
     db_context: KbDbContext,
     
+}
+
+#[derive(Debug, PartialEq)]
+enum TaskStatus {
+    InQueue,
+    Completed,
+    Skipped,
 }
 
 
@@ -102,9 +109,9 @@ impl Page {
         instance.now = Utc::now();
         let dayofweek = Days::new(instance.now.weekday().number_from_monday() as u64); //sunday = 0, monday = 1
         let sunday = instance.now - dayofweek;
-        let next_monday = sunday + Days::new(8); 
-        instance.start_date = datetime_into_date(sunday);
-        instance.end_date = datetime_into_date(next_monday);
+        let prev_monday = sunday - Days::new(6); 
+        instance.start_date = datetime_into_date(prev_monday);
+        instance.end_date = datetime_into_date(sunday);
 
         return instance;
     }
@@ -178,7 +185,7 @@ impl Page {
                     let task_id = prgss.task_id.clone();
                     prgss.download_name = result.kb_num.to_string();
                     prgss.url = result.click_uri.clone();
-                    self.task_status.insert(task_id, false);
+                    self.task_status.insert(task_id, TaskStatus::InQueue);
                     return prgss;
                 }).collect();
                 self.show_btn_download = true;
@@ -208,7 +215,7 @@ impl Page {
                     let id = page_result.err().unwrap();
 
                     if let Some(task) = self.task_status.get_mut(&id){
-                        *task = true;
+                        *task = TaskStatus::Skipped;
                     }
 
                     return Task::none();
@@ -216,7 +223,7 @@ impl Page {
 
                 //タスクを完了にマーク
                 if let Some(task) = self.task_status.get_mut(&id){
-                    *task = true;
+                    *task = TaskStatus::Completed;
                 }
                 
                 let mut kb_entity = KbDiffEntity::from(result);
@@ -273,17 +280,26 @@ impl Page {
 
         let download_button = button(text(format!("Download({})",self.downloads.iter().count())).align_x(Center)).on_press(Message::Download).width(Length::Fill);
 
-        let download_complete = self.task_status.iter().filter(|task| *task.1 == true).count();
+        // let download_complete = self.task_status.iter().filter(|task| *task.1 == true).count();
+        let qty_download_completed = self.task_status.iter().filter(|task| *task.1 == TaskStatus::Completed ).count();
+        let qty_download_skipped = self.task_status.iter().filter(|task| {*task.1 == TaskStatus::Skipped}).count();
+        let qty_download_inqueue = self.task_status.iter().filter(|task| {*task.1 == TaskStatus::InQueue}).count();
+        let qty_download_all = qty_download_skipped + qty_download_completed;
 
         let progress_value = if self.all_contents <= 0 {0.0} 
-            else {(download_complete as f32 / self.all_contents as f32)};
+            else {(qty_download_all as f32 / self.all_contents as f32)};
 
         let download_progress = ProgressBar::new(
         std::ops::RangeInclusive::new(0.0, 1.0), 
         progress_value)
         .height(Length::Fixed(10.0));
         
-        let progress_label= text(format!("{}/{}",self.all_contents,download_complete));
+        let mut progress_label= text(format!("{}/{} in Complete:{},Skip:{}",qty_download_all,self.all_contents,qty_download_completed,qty_download_skipped));
+        
+        if qty_download_all == self.all_contents as usize {
+            progress_label = text("Completed!");
+        }
+
 
         let date_select_group = row![
             text("Period:")
